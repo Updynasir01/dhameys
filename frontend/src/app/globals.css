@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-primary: #1a3570;
+  --brand-light: #2e7dfa;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { @apply antialiased; }
+}
+
+@layer components {
+  /* Explicit text/background so inputs stay readable inside sections with text-white */
+  .input-field {
+    @apply w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400;
+    @apply focus:border-brand-600 focus:ring-2 focus:ring-brand-500/25 focus:outline-none;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-brand-900 px-5 py-2.5 text-sm font-semibold text-white;
+    @apply hover:bg-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600;
+    @apply disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700;
+    @apply hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400;
+  }
+  .card {
+    @apply rounded-xl border border-gray-100 bg-white text-gray-900 shadow-sm;
+  }
+}
+
+@layer utilities {
+  .text-brand { color: var(--brand-primary); }
+  .bg-brand   { background-color: var(--brand-primary); }
+}

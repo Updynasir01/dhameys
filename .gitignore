@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Database
+*.sql.gz
+
+# OS
+.DS_Store
+Thumbs.db
+# Windows reserved names — a mistaken `> NUL` in a project folder can create this file and break `git add`
+NUL
+**/NUL
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Test coverage
+coverage/
+
+# Uploads
+uploads/
+public/uploads/

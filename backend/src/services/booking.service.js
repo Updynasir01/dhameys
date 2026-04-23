@@ -8,6 +8,7 @@ const { cache } = require('../config/database');
 const { BookingQueue, TicketQueue } = require('../config/rabbitmq');
 const ticketService = require('./ticket.service');
 const logger  = require('../utils/logger');
+const mystifly = require('../providers/mystifly/mystifly.service');
 
 async function generateBookingRef() {
   for (let i = 0; i < 10; i++) {
@@ -31,10 +32,12 @@ async function createBooking(data, userId) {
   if (!fare || !fare.isActive || fare.seatsAvailable < passengers.length)
     throw Object.assign(new Error('Fare no longer available'), { status: 409 });
 
-  // Check seat locks
-  for (const sa of seatAssignments) {
-    if (await cache.isSeatLocked(sa.flightId || outboundFlightId, sa.seatCode))
-      throw Object.assign(new Error(`Seat ${sa.seatCode} is already held`), { status: 409 });
+  // Check seat locks (only for local inventory)
+  if (flight.provider !== 'mystifly') {
+    for (const sa of seatAssignments) {
+      if (await cache.isSeatLocked(sa.flightId || outboundFlightId, sa.seatCode))
+        throw Object.assign(new Error(`Seat ${sa.seatCode} is already held`), { status: 409 });
+    }
   }
 
   // Promo
@@ -68,11 +71,33 @@ async function createBooking(data, userId) {
 
   // Build flight segments
   const flightSegments = [
-    { flight: flight._id, flightNumber: flight.flightNumber, originIata: flight.originIata, destIata: flight.destIata, departureTime: flight.departureTime, cabinClass, fareId: fare._id, segmentOrder: 1 },
+    {
+      flight: flight._id,
+      flightNumber: flight.flightNumber,
+      originIata: flight.originIata,
+      destIata: flight.destIata,
+      departureTime: flight.departureTime,
+      cabinClass,
+      fareId: fare._id,
+      provider: flight.provider || 'mongo',
+      providerFlightId: flight.providerFlightId,
+      providerFareId: fare.providerFareId || fare.fareCode,
+      segmentOrder: 1,
+    },
   ];
   if (returnFlightId) {
     const ret = await Flight.findById(returnFlightId);
-    if (ret) flightSegments.push({ flight: ret._id, flightNumber: ret.flightNumber, originIata: ret.originIata, destIata: ret.destIata, departureTime: ret.departureTime, cabinClass, segmentOrder: 2 });
+    if (ret) flightSegments.push({
+      flight: ret._id,
+      flightNumber: ret.flightNumber,
+      originIata: ret.originIata,
+      destIata: ret.destIata,
+      departureTime: ret.departureTime,
+      cabinClass,
+      provider: ret.provider || 'mongo',
+      providerFlightId: ret.providerFlightId,
+      segmentOrder: 2,
+    });
   }
 
   // Assign seats to passengers
@@ -93,17 +118,24 @@ async function createBooking(data, userId) {
     loyaltyPointsUsed: loyaltyPointsToUse,
     contactEmail: contactEmail.toLowerCase(), contactPhone: contactPhone || undefined,
     expiresAt,
+    provider: flight.provider || 'mongo',
   });
 
-  // Deduct fare seats
-  await Flight.findOneAndUpdate(
-    { _id: outboundFlightId, 'fares._id': fare._id },
-    { $inc: { 'fares.$.seatsAvailable': -passengers.length, [`${cabinClass}Available`]: -passengers.length } }
-  );
+  if (flight.provider !== 'mystifly') {
+    // Deduct fare seats
+    await Flight.findOneAndUpdate(
+      { _id: outboundFlightId, 'fares._id': fare._id },
+      { $inc: { 'fares.$.seatsAvailable': -passengers.length, [`${cabinClass}Available`]: -passengers.length } }
+    );
 
-  // Lock seats in cache
-  for (const sa of seatAssignments) {
-    await cache.lockSeat(sa.flightId || outboundFlightId, sa.seatCode, bookingRef, 15);
+    // Lock seats in cache
+    for (const sa of seatAssignments) {
+      await cache.lockSeat(sa.flightId || outboundFlightId, sa.seatCode, bookingRef, 15);
+    }
+  } else {
+    // External provider hold/booking creation (pre-payment) so we can revalidate inventory.
+    const { providerBookingRef, providerPnr } = await mystifly.createExternalBookingHold({ booking, flight: flight.toObject(), fare: fare.toObject() });
+    await Booking.findByIdAndUpdate(booking._id, { providerBookingRef, providerPnr });
   }
 
   // Update promo usage
@@ -123,11 +155,15 @@ async function confirmBooking(bookingId) {
   );
   if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 });
 
-  // Unlock seats
-  for (const seg of booking.flights) {
-    for (const pax of booking.passengers) {
-      if (pax.seatCode) await cache.unlockSeat(seg.flight, pax.seatCode);
+  // Unlock seats (only local inventory)
+  if (booking.provider !== 'mystifly') {
+    for (const seg of booking.flights) {
+      for (const pax of booking.passengers) {
+        if (pax.seatCode) await cache.unlockSeat(seg.flight, pax.seatCode);
+      }
     }
+  } else {
+    await mystifly.onBookingConfirmed(booking._id).catch(() => {});
   }
 
   // Award loyalty

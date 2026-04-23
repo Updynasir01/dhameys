@@ -26,6 +26,9 @@ const flightSegmentSchema = new Schema({
   departureTime:{ type: Date },
   cabinClass:   { type: String, enum: ['economy','premium_economy','business','first'] },
   fareId:       { type: Schema.Types.ObjectId },
+  provider:     { type: String, enum: ['mongo', 'mystifly'], default: 'mongo' },
+  providerFlightId: { type: String },
+  providerFareId:   { type: String },
   segmentOrder: { type: Number, default: 1 },
 }, { _id: true });
 
@@ -43,6 +46,10 @@ const bookingSchema = new Schema({
   user:        { type: Schema.Types.ObjectId, ref: 'User', default: null },
   tripType:    { type: String, enum: ['one_way','round_trip','multi_city'], default: 'one_way' },
   status:      { type: String, enum: ['pending','confirmed','cancelled','refunded','partially_refunded','no_show','completed'], default: 'pending' },
+
+  provider:    { type: String, enum: ['mongo', 'mystifly'], default: 'mongo' },
+  providerBookingRef: { type: String },
+  providerPnr:        { type: String },
 
   flights:     [flightSegmentSchema],
   passengers:  [passengerSchema],

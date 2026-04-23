@@ -18,6 +18,12 @@ export default function HomePage() {
   const router = useRouter();
   const handleSearch = (params: URLSearchParams) => router.push(`/search?${params.toString()}`);
 
+  const popularDepartureDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().split('T')[0];
+  })();
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -44,7 +50,7 @@ export default function HomePage() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {popularRoutes.map((r) => (
             <Link key={`${r.from}-${r.to}`}
-              href={`/search?origin=${r.from}&destination=${r.to}&adults=1&cabinClass=economy`}
+              href={`/search?origin=${r.from}&destination=${r.to}&departureDate=${popularDepartureDate}&adults=1&cabinClass=economy`}
               className="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-300 transition-all">
               <div className="flex items-center justify-between mb-3">
                 <div>

@@ -1,5 +1,26 @@
 // src/server.js — Dhameys Airlines (MongoDB edition)
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+
+const isProd = process.env.NODE_ENV === 'production';
+if (!process.env.JWT_SECRET) {
+  if (isProd) {
+    console.error('FATAL: JWT_SECRET must be set in production');
+    process.exit(1);
+  }
+  process.env.JWT_SECRET = 'dev-jwt-secret-change-me';
+  console.warn('[env] JWT_SECRET missing — using dev default. Set JWT_SECRET in .env for real use.');
+}
+if (!process.env.JWT_REFRESH_SECRET) {
+  if (isProd) {
+    console.error('FATAL: JWT_REFRESH_SECRET must be set in production');
+    process.exit(1);
+  }
+  process.env.JWT_REFRESH_SECRET = 'dev-jwt-refresh-secret-change-me';
+  console.warn('[env] JWT_REFRESH_SECRET missing — using dev default.');
+}
+
 require('express-async-errors');
 
 const express     = require('express');

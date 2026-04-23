@@ -44,8 +44,9 @@ async function register(data, req) {
     });
     user.status = 'active';
     user.emailVerified = true;
+  } else {
+    await EmailQueue.sendVerification({ to: email, name: firstName, token: verifyToken, url: `${process.env.FRONTEND_URL}/verify-email?token=${verifyToken}` }).catch(()=>{});
   }
-  await EmailQueue.sendVerification({ to: email, name: firstName, token: verifyToken, url: `${process.env.FRONTEND_URL}/verify-email?token=${verifyToken}` }).catch(()=>{});
   return fmt(user);
 }
 
@@ -53,9 +54,12 @@ async function login(email, password, req) {
   const user = await User.findOne({ email: email.toLowerCase(), deletedAt: null }).select('+passwordHash +twoFaSecret');
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
   if (user.status === 'suspended') throw Object.assign(new Error('Account suspended'), { status: 403 });
-  // Customers register as pending_verification; superadmin script sets active. In local dev, allow login without email link.
+  // pending_verification: block login unless dev, SKIP_EMAIL_VERIFICATION, or already handled below
   if (user.status === 'pending_verification') {
-    if (process.env.NODE_ENV === 'development') {
+    const allowWithoutLink =
+      process.env.NODE_ENV === 'development' ||
+      process.env.SKIP_EMAIL_VERIFICATION === 'true';
+    if (allowWithoutLink) {
       await User.findByIdAndUpdate(user._id, {
         status: 'active',
         emailVerified: true,

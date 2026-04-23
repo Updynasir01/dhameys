@@ -1,6 +1,16 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { flightApi } from '../../lib/api';
+
+/** Use selected airport code, or a plain 3-letter IATA typed without picking from the list */
+function resolveIata(selected: { iata: string }, rawInput: string): string | null {
+  const fromPick = selected.iata?.trim();
+  if (fromPick && /^[A-Za-z]{3}$/.test(fromPick)) return fromPick.toUpperCase();
+  const t = rawInput.trim().toUpperCase();
+  if (/^[A-Z]{3}$/.test(t)) return t;
+  return null;
+}
 
 interface SearchFormProps { onSearch: (p: URLSearchParams) => void; }
 
@@ -35,11 +45,24 @@ export default function SearchForm({ onSearch }: SearchFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!origin.iata || !dest.iata || !depDate) return;
+    const o = resolveIata(origin, originInput);
+    const d = resolveIata(dest, destInput);
+    if (!o || !d) {
+      toast.error('Choose an airport from the list or type a 3-letter code (e.g. DXB, LHR).');
+      return;
+    }
+    if (!depDate) {
+      toast.error('Please select a departure date.');
+      return;
+    }
     const p = new URLSearchParams({
-      origin: origin.iata, destination: dest.iata,
-      departureDate: depDate, cabinClass, adults: String(adults),
-      children: String(children), tripType,
+      origin: o,
+      destination: d,
+      departureDate: depDate,
+      cabinClass,
+      adults: String(adults),
+      children: String(children),
+      tripType,
       ...(tripType === 'round_trip' && retDate ? { returnDate: retDate } : {}),
     });
     onSearch(p);

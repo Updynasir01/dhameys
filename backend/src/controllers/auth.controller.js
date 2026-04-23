@@ -3,7 +3,11 @@ const authService = require('../services/auth.service');
 
 async function register(req, res) {
   const user = await authService.register(req.body, req);
-  res.status(201).json({ success: true, message: 'Registration successful. Please verify your email.', data: user });
+  const msg =
+    process.env.SKIP_EMAIL_VERIFICATION === 'true'
+      ? 'Registration successful.'
+      : 'Registration successful. Please verify your email.';
+  res.status(201).json({ success: true, message: msg, data: user });
 }
 
 async function login(req, res) {

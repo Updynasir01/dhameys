@@ -12,6 +12,8 @@ const fareRuleSchema = new Schema({
   seatsAvailable:  { type: Number, required: true },
   seatsTotal:      { type: Number, required: true },
   fareCode:        { type: String },
+  providerFareId:  { type: String },
+  providerMeta:    { type: Schema.Types.Mixed },
   refundable:      { type: Boolean, default: false },
   changeable:      { type: Boolean, default: false },
   changeFee:       { type: Number, default: 0 },
@@ -25,6 +27,11 @@ fareRuleSchema.virtual('totalPrice').get(function() {
 
 const flightSchema = new Schema({
   flightNumber: { type: String, required: true },
+
+  // Inventory source/provider for this flight option
+  provider:        { type: String, enum: ['mongo', 'mystifly'], default: 'mongo', index: true },
+  providerFlightId:{ type: String, index: true },
+  providerMeta:    { type: Schema.Types.Mixed },
 
   // References stored as IATA codes for easy querying (denormalized)
   originIata:   { type: String, required: true, uppercase: true },
@@ -81,6 +88,7 @@ flightSchema.index({ originIata: 1, destIata: 1, departureTime: 1 });
 flightSchema.index({ departureTime: 1 });
 flightSchema.index({ status: 1 });
 flightSchema.index({ flightNumber: 1 });
+flightSchema.index({ provider: 1, providerFlightId: 1, departureTime: 1 });
 // Text search on cities
 flightSchema.index({ originCity: 'text', destCity: 'text', originIata: 'text', destIata: 'text' });
 

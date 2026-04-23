@@ -1,8 +1,10 @@
-// src/services/flight.service.js — MongoDB version
+// src/services/flight.service.js — Provider-backed (MongoDB / Mystifly)
 const Flight  = require('../models/Flight');
 const Airport = require('../models/Airport');
 const { cache } = require('../config/database');
 const logger = require('../utils/logger');
+const { isMystiflyEnabled } = require('../providers/provider.factory');
+const mystifly = require('../providers/mystifly/mystifly.service');
 
 /** UTC day for YYYY-MM-DD, expanded ±20h so local `datetime-local` departures still match the same calendar search date */
 function departureInstantRange(departureDate) {
@@ -12,7 +14,7 @@ function departureInstantRange(departureDate) {
   return { $gte: new Date(dayStart.getTime() - slack), $lte: new Date(dayEnd.getTime() + slack) };
 }
 
-async function search({ origin, destination, departureDate, cabinClass = 'economy', adults = 1, children = 0, sortBy = 'price', page = 1, size = 20 }) {
+async function mongoSearch({ origin, destination, departureDate, cabinClass = 'economy', adults = 1, children = 0, sortBy = 'price', page = 1, size = 20 }) {
   const cacheKey = `search:${origin}:${destination}:${departureDate}:${cabinClass}:${adults}`;
   const cached = await cache.get(cacheKey);
   if (cached) return cached;
@@ -49,6 +51,13 @@ async function search({ origin, destination, departureDate, cabinClass = 'econom
   const result = { flights: withPrices, total, page: parseInt(page), size };
   await cache.set(cacheKey, result, 300);
   return result;
+}
+
+async function search(params) {
+  if (isMystiflyEnabled()) {
+    return mystifly.search(params);
+  }
+  return mongoSearch(params);
 }
 
 async function getFlightById(id) {
@@ -106,4 +115,15 @@ async function getSeatMap(flightId) {
   return rows;
 }
 
-module.exports = { search, getFlightById, getSeatMap, autocomplete };
+async function getFareRules(flightId, fareId) {
+  const flight = await Flight.findById(flightId).lean();
+  if (!flight) throw Object.assign(new Error('Flight not found'), { status: 404 });
+  const fare = (flight.fares || []).find((f) => String(f._id) === String(fareId));
+  if (!fare) throw Object.assign(new Error('Fare not found'), { status: 404 });
+  if (flight.provider !== 'mystifly') {
+    throw Object.assign(new Error('Fare rules are only available for provider inventory'), { status: 501 });
+  }
+  return mystifly.fareRules({ flight, fare });
+}
+
+module.exports = { search, getFlightById, getSeatMap, autocomplete, getFareRules };

@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
 const nextConfig = {
   // For cPanel deployment — generates static files in /out
   // Switch to 'standalone' if using Node.js on cPanel
@@ -13,7 +15,7 @@ const nextConfig = {
   },
 
   env: {
-    NEXT_PUBLIC_API_URL:           process.env.NEXT_PUBLIC_API_URL           || 'http://localhost:5000',
+    NEXT_PUBLIC_API_URL:           API_URL,
     NEXT_PUBLIC_STRIPE_PUBLIC_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY || '',
     NEXT_PUBLIC_GOOGLE_MAPS_KEY:   process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY   || '',
     NEXT_PUBLIC_APP_NAME:          'Dhameys Airlines',
@@ -38,7 +40,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
+        destination: `${API_URL}/api/:path*`,
       },
     ];
   },
